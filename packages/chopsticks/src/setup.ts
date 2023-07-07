@@ -20,6 +20,7 @@ import { defaultLogger } from './logger'
 import { importStorage, overrideWasm } from './utils/import-storage'
 import { openDb } from './db'
 import { timeTravel } from './utils/time-travel'
+import { BuildBlockModeArgs } from './blockchain/txpool'
 
 export const setup = async (argv: Config, runBlock = false) => {
   let provider: ProviderInterface
@@ -62,9 +63,15 @@ export const setup = async (argv: Config, runBlock = false) => {
     new SetBabeRandomness(),
   ])
 
+  const buildBlockModeArgs: BuildBlockModeArgs = {};
+  if (argv['build-block-period']) {
+    buildBlockModeArgs.period = parseInt(argv['build-block-period']);
+  }
+
   const chain = new Blockchain({
     api,
     buildBlockMode: argv['build-block-mode'],
+    buildBlockModeArgs,
     inherentProvider: inherents,
     db,
     header: {

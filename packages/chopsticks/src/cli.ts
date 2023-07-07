@@ -107,7 +107,11 @@ yargs(hideBin(process.argv))
         },
         'build-block-mode': {
           desc: 'Build block mode. Default to Batch',
-          enum: [BuildBlockMode.Batch, BuildBlockMode.Manual, BuildBlockMode.Instant],
+          enum: [BuildBlockMode.Batch, BuildBlockMode.Manual, BuildBlockMode.Instant, BuildBlockMode.Peroid],
+        },
+        'build-block-period': {
+          desc: 'Build block period, seconds. Only avaliable when build-block-mode is period',
+          number: true,
         },
         'allow-unresolved-imports': {
           desc: 'Allow wasm unresolved imports',

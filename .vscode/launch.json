@@ -40,6 +40,16 @@
 			"protocol": "inspector"
 		},
 		{
+			"name": "Server-TestPeroid",
+			"type": "node",
+			"request": "launch",
+			"args": ["${workspaceRoot}/packages/chopsticks/src/cli.ts", "--build-block-mode", "3", "--build-block-period", "12", "--endpoint", "wss://acala-rpc-2.aca-api.network/ws"],
+			"runtimeArgs": ["--nolazy", "-r", "ts-node/register"],
+			"sourceMaps": true,
+			"cwd": "${workspaceRoot}",
+			"protocol": "inspector"
+		},
+		{
 			"type": "node",
 			"request": "launch",
 			"name": "Debug Current Test File",

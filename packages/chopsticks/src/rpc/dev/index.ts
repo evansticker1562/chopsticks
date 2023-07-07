@@ -72,6 +72,11 @@ const handlers: Handlers = {
     return block.hash
   },
   dev_dryRun,
+  dev_setBlockBuildModeArgs: async (context, [modeArgs]) => {
+    logger.debug({ modeArgs }, 'dev_setBlockBuildModeArgs')
+
+    context.chain.txPool.modeArgs = modeArgs
+  },
   dev_setBlockBuildMode: async (context, [mode]) => {
     logger.debug({ mode }, 'dev_setBlockBuildMode')
 

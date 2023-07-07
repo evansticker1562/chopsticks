@@ -8,7 +8,7 @@ import type { TransactionValidity } from '@polkadot/types/interfaces/txqueue'
 
 import { Api } from '../api'
 import { Block } from './block'
-import { BuildBlockMode, BuildBlockParams, DownwardMessage, HorizontalMessage, TxPool } from './txpool'
+import { BuildBlockMode, BuildBlockModeArgs, BuildBlockParams, DownwardMessage, HorizontalMessage, TxPool } from './txpool'
 import { HeadState } from './head-state'
 import { InherentProvider } from './inherent'
 import { StorageValue } from './storage-layer'
@@ -21,6 +21,7 @@ const logger = defaultLogger.child({ name: 'blockchain' })
 export interface Options {
   api: Api
   buildBlockMode?: BuildBlockMode
+  buildBlockModeArgs?: BuildBlockModeArgs
   inherentProvider: InherentProvider
   db?: DataSource
   header: { number: number; hash: HexString }
@@ -52,6 +53,7 @@ export class Blockchain {
   constructor({
     api,
     buildBlockMode,
+    buildBlockModeArgs,
     inherentProvider,
     db,
     header,
@@ -70,7 +72,7 @@ export class Blockchain {
     this.#head = new Block(this, header.number, header.hash)
     this.#registerBlock(this.#head)
 
-    this.#txpool = new TxPool(this, inherentProvider, buildBlockMode)
+    this.#txpool = new TxPool(this, inherentProvider, buildBlockMode, buildBlockModeArgs)
     this.#inherentProvider = inherentProvider
 
     this.headState = new HeadState(this.#head)
