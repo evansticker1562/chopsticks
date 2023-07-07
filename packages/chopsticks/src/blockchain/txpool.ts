@@ -17,6 +17,11 @@ export enum BuildBlockMode {
   Batch, // one block per batch, default
   Instant, // one block per tx
   Manual, // only build when triggered
+  Peroid, // one block per period
+}
+
+export interface BuildBlockModeArgs {
+  period?: number
 }
 
 export interface DownwardMessage {
@@ -36,6 +41,8 @@ export interface BuildBlockParams {
   transactions: HexString[]
 }
 
+const DEFAULT_BUILD_PERIOD = 12;
+
 export class TxPool {
   readonly #chain: Blockchain
 
@@ -45,6 +52,7 @@ export class TxPool {
   readonly #hrmp: Record<number, HorizontalMessage[]> = {}
 
   #mode: BuildBlockMode
+  #modeArgs: BuildBlockModeArgs
   readonly #inherentProvider: InherentProvider
   readonly #pendingBlocks: { params: BuildBlockParams; deferred: Deferred<void> }[] = []
 
@@ -52,10 +60,14 @@ export class TxPool {
 
   #isBuilding = false
 
-  constructor(chain: Blockchain, inherentProvider: InherentProvider, mode: BuildBlockMode = BuildBlockMode.Batch) {
+  #blockTimer: NodeJS.Timer | null = null;
+
+  constructor(chain: Blockchain, inherentProvider: InherentProvider, mode: BuildBlockMode = BuildBlockMode.Batch, modeArgs: BuildBlockModeArgs = {}) {
     this.#chain = chain
     this.#mode = mode
+    this.#modeArgs = modeArgs || {}
     this.#inherentProvider = inherentProvider
+    this.setupBlockMode();
   }
 
   get pendingExtrinsics(): HexString[] {
@@ -80,6 +92,15 @@ export class TxPool {
 
   set mode(mode: BuildBlockMode) {
     this.#mode = mode
+    this.setupBlockMode();
+  }
+
+  get modeArgs(): BuildBlockModeArgs {
+    return this.#modeArgs
+  }
+
+  set modeArgs(modeArgs: BuildBlockModeArgs) {
+    this.#modeArgs = modeArgs || {}
   }
 
   clear() {
@@ -95,6 +116,52 @@ export class TxPool {
 
   pendingExtrinsicsBy(address: string): HexString[] {
     return this.#pool.filter(({ signer }) => signer === address).map(({ extrinsic }) => extrinsic)
+  }
+
+  setupBlockMode() {
+    // clear block build mode firstly
+    this.clearBlockMode();
+
+    // setup block build mode
+    switch (this.#mode) {
+      case BuildBlockMode.Peroid:
+        this.setupPeroidBlockMode();
+        break
+      default:
+        break
+    }
+  }
+
+  clearBlockMode() {
+    if (this.#mode != BuildBlockMode.Peroid) {
+      this.clearPeriodBlockMode();
+    }
+  }
+
+  clearPeriodBlockMode() {
+    // clear block build period timer
+    if (this.#blockTimer) {
+      clearInterval(this.#blockTimer);
+      this.#blockTimer = null;
+    }
+  }
+
+  setupPeroidBlockMode() {
+    // check arguments
+    if (!this.#modeArgs.period
+      || isNaN(this.#modeArgs.period)
+      ||  this.#modeArgs.period <= 0) {
+      this.#modeArgs.period = DEFAULT_BUILD_PERIOD;
+    }
+
+    this.clearPeriodBlockMode();
+
+    logger.info(`setupPeroidBlockMode, period:${this.#modeArgs.period}`)
+    // build new block per peroid
+    this.#blockTimer = setInterval(() => {
+      logger.info(`Start build block.., interval:${this.#modeArgs.period}`)
+      this.buildBlock();
+    }, this.#modeArgs.period * 1000)
   }
 
   async submitExtrinsic(extrinsic: HexString) {
@@ -150,6 +217,9 @@ export class TxPool {
         this.buildBlock()
         break
       case BuildBlockMode.Manual:
+        // does nothing
+        break
+      case BuildBlockMode.Peroid:
         // does nothing
         break
     }
