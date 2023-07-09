@@ -2,7 +2,7 @@ import { HexString } from '@polkadot/util/types'
 import _ from 'lodash'
 
 import { Block } from '../../blockchain/block'
-import { BuildBlockMode } from '../../blockchain/txpool'
+import { BlockMiner, MinerMode } from '../../blockchain/block/miner'
 import { Handlers, ResponseError } from '../shared'
 import { StorageValues, setStorage } from '../../utils/set-storage'
 import { defaultLogger } from '../../logger'
@@ -72,19 +72,16 @@ const handlers: Handlers = {
     return block.hash
   },
   dev_dryRun,
-  dev_setBlockBuildModeArgs: async (context, [modeArgs]) => {
-    logger.debug({ modeArgs }, 'dev_setBlockBuildModeArgs')
+  dev_setMinerMode: async (context, [mode, args]) => {
+    logger.debug({ mode }, 'dev_setMinerMode')
 
-    context.chain.txPool.modeArgs = modeArgs
-  },
-  dev_setBlockBuildMode: async (context, [mode]) => {
-    logger.debug({ mode }, 'dev_setBlockBuildMode')
-
-    if (BuildBlockMode[mode] === undefined) {
+    if (MinerMode[mode] === undefined) {
       throw new ResponseError(1, `Invalid mode ${mode}`)
     }
 
-    context.chain.txPool.mode = mode
+    const config = BlockMiner.buildConfigFromArgs(args);
+    config.mode = mode;
+    context.chain.miner.minerConfig = config;
   },
 }
 

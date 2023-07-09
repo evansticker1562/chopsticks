@@ -6,14 +6,14 @@ import {
   RawBabePreDigest,
   TransactionValidityError,
 } from '@polkadot/types/interfaces'
-import { Block, TaskCallResponse } from './block'
+import { Block, TaskCallResponse } from '.'
 import { GenericExtrinsic } from '@polkadot/types'
 import { HexString } from '@polkadot/util/types'
-import { StorageLayer, StorageValueKind } from './storage-layer'
+import { StorageLayer, StorageValueKind } from '../storage-layer'
 import { compactAddLength, hexToU8a, stringToHex, u8aConcat } from '@polkadot/util'
-import { compactHex } from '../utils'
-import { defaultLogger, truncate } from '../logger'
-import { getCurrentSlot } from '../utils/time-travel'
+import { compactHex } from '../../utils'
+import { defaultLogger, truncate } from '../../logger'
+import { getCurrentSlot } from '../../utils/time-travel'
 
 const logger = defaultLogger.child({ name: 'block-builder' })
 

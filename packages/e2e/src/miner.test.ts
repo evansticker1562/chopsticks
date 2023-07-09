@@ -11,12 +11,11 @@ describe.each([
     await teardownAll()
   })
 
-  it('build block period', async () => {
+  it('set miner mode', async () => {
     const { chain, ws, teardown } = await setup()
-    await ws.send('dev_setBlockBuildModeArgs', [{
-      period: 12
+    await ws.send('dev_setMinerMode', [3, {
+      interval: 12
     }])
-    await ws.send('dev_setBlockBuildMode', [3])
 
     const timeout = async (time) => {
       return new Promise((resolve, reject) => {
@@ -25,25 +24,25 @@ describe.each([
     }
     await timeout(50_000);  // cause first build block time larger than 30s
     let blockNumber = chain.head.number;
-    await timeout(12_000);
+    await timeout(18_000);
     expect(chain.head.number).eq(blockNumber + 1)
 
     // change period to 10s
-    await ws.send('dev_setBlockBuildModeArgs', [{
-      period: 10
+    await ws.send('dev_setMinerMode', [3, {
+      interval: 10
     }])
-    await ws.send('dev_setBlockBuildMode', [3])
+
     await timeout(20_000);
 
     blockNumber = chain.head.number;
-    await timeout(10_000);
+    await timeout(15_000);
     expect(chain.head.number).eq(blockNumber + 1)
 
     // test when set block build mode to Manual
-    await ws.send('dev_setBlockBuildMode', [2])
+    await ws.send('dev_setMinerMode', [2])
     await timeout(10_000);
     blockNumber = chain.head.number;
-    await timeout(10_000);
+    await timeout(20_000);
     expect(chain.head.number).eq(blockNumber)
 
     await teardown();

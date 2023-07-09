@@ -1,11 +1,11 @@
 import { ApiPromise, WsProvider } from '@polkadot/api'
 import { Codec } from '@polkadot/types/types'
 import { HexString } from '@polkadot/util/types'
+import { MinerConfig, MinerMode } from './../../chopsticks/src/blockchain/block/miner';
 import { beforeAll, beforeEach, expect, vi } from 'vitest'
 
 import { Api } from '@acala-network/chopsticks'
 import { Blockchain } from '@acala-network/chopsticks/blockchain'
-import { BuildBlockMode } from '@acala-network/chopsticks/blockchain/txpool'
 import { GenesisProvider } from '@acala-network/chopsticks/genesis-provider'
 import {
   InherentProviders,
@@ -70,9 +70,12 @@ export const setupAll = async ({
         new SetBabeRandomness(),
       ])
 
+      const minerConfig: MinerConfig = {
+        mode: MinerMode.Manual
+      };
       const chain = new Blockchain({
         api,
-        buildBlockMode: BuildBlockMode.Manual,
+        minerConfig,
         inherentProvider: inherents,
         header: {
           hash: blockHash || (await api.getBlockHash()),

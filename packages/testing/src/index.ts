@@ -1,11 +1,12 @@
 import { ApiPromise, WsProvider } from '@polkadot/api'
-import { BuildBlockMode, setupWithServer } from '@acala-network/chopsticks'
 import { Codec } from '@polkadot/types/types'
 import { HexString } from '@polkadot/util/types'
 import { Keyring, createTestKeyring } from '@polkadot/keyring'
+import { MinerMode } from '@acala-network/chopsticks'
 import { StorageValues } from '@acala-network/chopsticks/utils/set-storage'
 import { SubmittableExtrinsic } from '@polkadot/api-base/types'
 import { expect } from 'vitest'
+import { setupWithServer } from '@acala-network/chopsticks'
 
 export * from './check'
 
@@ -26,7 +27,7 @@ export const setupContext = async ({ endpoint, blockNumber, blockHash, wasmOverr
     port,
     block: blockNumber || blockHash,
     mockSignatureHost: true,
-    'build-block-mode': BuildBlockMode.Manual,
+    'miner-mode': MinerMode.Manual,
     db,
     'wasm-override': wasmOverride,
   }
@@ -70,7 +71,7 @@ export const setupContext = async ({ endpoint, blockNumber, blockHash, wasmOverr
       await close()
     },
     async pause() {
-      await ws.send('dev_setBlockBuildMode', [BuildBlockMode.Instant])
+      await ws.send('dev_setMinerMode', [MinerMode.Instant])
 
       // log a bit later to ensure the message is visible
       setTimeout(() => console.log(`Test paused. Polkadot.js apps URL: https://polkadot.js.org/apps/?rpc=${url}`), 100)

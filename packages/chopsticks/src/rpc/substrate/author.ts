@@ -1,4 +1,4 @@
-import { APPLY_EXTRINSIC_ERROR } from '../../blockchain/txpool'
+import { EVENT_APPLY_EXTRINSIC_ERROR } from '../../blockchain/block/miner'
 import { Block } from '../../blockchain/block'
 import { Handlers, ResponseError } from '../shared'
 import { TransactionValidityError } from '@polkadot/types/interfaces'
@@ -26,10 +26,10 @@ const handlers: Handlers = {
       }
     }
 
-    context.chain.txPool.event.on(APPLY_EXTRINSIC_ERROR, onExtrinsicFail)
+    context.chain.miner.event.on(EVENT_APPLY_EXTRINSIC_ERROR, onExtrinsicFail)
 
     const done = (id: string) => {
-      context.chain.txPool.event.removeListener(APPLY_EXTRINSIC_ERROR, onExtrinsicFail)
+      context.chain.miner.event.removeListener(EVENT_APPLY_EXTRINSIC_ERROR, onExtrinsicFail)
       unsubscribe(id)
     }
 

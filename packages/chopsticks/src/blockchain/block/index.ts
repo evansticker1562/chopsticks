@@ -7,12 +7,12 @@ import { hexToU8a, objectSpread, stringToHex } from '@polkadot/util'
 import type { ExtDef } from '@polkadot/types/extrinsic/signedExtensions/types'
 import type { HexString } from '@polkadot/util/types'
 
-import { Blockchain } from '.'
-import { RemoteStorageLayer, StorageLayer, StorageLayerProvider, StorageValue, StorageValueKind } from './storage-layer'
-import { compactHex } from '../utils'
-import { defaultLogger } from '../logger'
-import { getRuntimeVersion, runTask, taskHandler } from '../executor'
-import type { RuntimeVersion } from '../executor'
+import { Blockchain } from '../'
+import { RemoteStorageLayer, StorageLayer, StorageLayerProvider, StorageValue, StorageValueKind } from './../storage-layer'
+import { compactHex } from '../../utils'
+import { defaultLogger } from '../../logger'
+import { getRuntimeVersion, runTask, taskHandler } from '../../executor'
+import type { RuntimeVersion } from '../../executor'
 
 export type TaskCallResponse = {
   result: HexString

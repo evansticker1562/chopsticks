@@ -8,20 +8,20 @@ import type { TransactionValidity } from '@polkadot/types/interfaces/txqueue'
 
 import { Api } from '../api'
 import { Block } from './block'
-import { BuildBlockMode, BuildBlockModeArgs, BuildBlockParams, DownwardMessage, HorizontalMessage, TxPool } from './txpool'
+import { BlockMiner, MinerConfig } from './block/miner'
+import { BuildBlockParams, DownwardMessage, HorizontalMessage, TxPool } from './txpool'
 import { HeadState } from './head-state'
 import { InherentProvider } from './inherent'
 import { StorageValue } from './storage-layer'
 import { compactHex } from '../utils'
 import { defaultLogger } from '../logger'
-import { dryRunExtrinsic, dryRunInherents } from './block-builder'
+import { dryRunExtrinsic, dryRunInherents } from './block/builder'
 
 const logger = defaultLogger.child({ name: 'blockchain' })
 
 export interface Options {
   api: Api
-  buildBlockMode?: BuildBlockMode
-  buildBlockModeArgs?: BuildBlockModeArgs
+  minerConfig: MinerConfig
   inherentProvider: InherentProvider
   db?: DataSource
   header: { number: number; hash: HexString }
@@ -41,6 +41,7 @@ export class Blockchain {
   readonly registeredTypes: RegisteredTypes
 
   readonly #txpool: TxPool
+  readonly #miner: BlockMiner
   readonly #inherentProvider: InherentProvider
 
   #head: Block
@@ -52,8 +53,7 @@ export class Blockchain {
 
   constructor({
     api,
-    buildBlockMode,
-    buildBlockModeArgs,
+    minerConfig,
     inherentProvider,
     db,
     header,
@@ -72,8 +72,9 @@ export class Blockchain {
     this.#head = new Block(this, header.number, header.hash)
     this.#registerBlock(this.#head)
 
-    this.#txpool = new TxPool(this, inherentProvider, buildBlockMode, buildBlockModeArgs)
+    this.#txpool = new TxPool(this)
     this.#inherentProvider = inherentProvider
+    this.#miner = new BlockMiner(this, minerConfig, this.#txpool)
 
     this.headState = new HeadState(this.#head)
   }
@@ -89,6 +90,10 @@ export class Blockchain {
 
   get txPool() {
     return this.#txpool
+  }
+
+  get miner() {
+    return this.#miner
   }
 
   async getBlockAt(number?: number): Promise<Block | undefined> {
@@ -188,17 +193,21 @@ export class Blockchain {
   }
 
   async newBlock(params?: Partial<BuildBlockParams>): Promise<Block> {
-    await this.#txpool.buildBlock(params)
+    await this.#miner.buildBlock(params)
     return this.#head
   }
 
   async newBlockWithParams(params: BuildBlockParams): Promise<Block> {
-    await this.#txpool.buildBlockWithParams(params)
+    await this.#miner.buildBlockWithParams(params)
     return this.#head
   }
 
   async upcomingBlocks() {
-    return this.#txpool.upcomingBlocks()
+    return this.#miner.upcomingBlocks()
+  }
+
+  getInherentProvider():InherentProvider {
+    return this.#inherentProvider;
   }
 
   async dryRunExtrinsic(

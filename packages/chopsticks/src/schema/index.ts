@@ -1,4 +1,4 @@
-import { BuildBlockMode } from '../blockchain/txpool'
+import { MinerMode } from '../blockchain/block/miner'
 import { z } from 'zod'
 
 export const genesisSchema = z.object({
@@ -19,7 +19,7 @@ export const configSchema = z
     port: z.number().optional(),
     endpoint: z.string().optional(),
     block: z.union([z.string().length(66).startsWith('0x'), z.number(), z.null()]).optional(),
-    'build-block-mode': z.nativeEnum(BuildBlockMode).optional(),
+    'miner-mode': z.nativeEnum(MinerMode).optional(),
     'import-storage': z.any().optional(),
     'mock-signature-host': z.boolean().optional(),
     db: z.string().optional(),

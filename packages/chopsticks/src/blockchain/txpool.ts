@@ -4,25 +4,14 @@ import { HexString } from '@polkadot/util/types'
 import _ from 'lodash'
 
 import { Blockchain } from '.'
-import { Deferred, defer } from '../utils'
-import { InherentProvider } from './inherent'
-import { buildBlock } from './block-builder'
 import { defaultLogger, truncate } from '../logger'
 
 const logger = defaultLogger.child({ name: 'txpool' })
 
-export const APPLY_EXTRINSIC_ERROR = 'TxPool::ApplyExtrinsicError'
-
-export enum BuildBlockMode {
-  Batch, // one block per batch, default
-  Instant, // one block per tx
-  Manual, // only build when triggered
-  Peroid, // one block per period
-}
-
-export interface BuildBlockModeArgs {
-  period?: number
-}
+export const EVENT_SUBMIT_EXTRINSIC = 'TxPool::SubmitExtrinsic'
+export const EVENT_SUBMIT_UPWARD_MESSAGES = 'TxPool::SubmitUpwardMessages'
+export const EVENT_SUBMIT_DOWNWARD_MESSAGES = 'TxPool::SubmitDownwardMessages'
+export const EVENT_SUBMIT_HORIZTONAL_MESSAGES = 'TxPool::SubmitHorizontalMessages'
 
 export interface DownwardMessage {
   sentAt: number
@@ -41,8 +30,6 @@ export interface BuildBlockParams {
   transactions: HexString[]
 }
 
-const DEFAULT_BUILD_PERIOD = 12;
-
 export class TxPool {
   readonly #chain: Blockchain
 
@@ -50,24 +37,10 @@ export class TxPool {
   readonly #ump: Record<number, HexString[]> = {}
   readonly #dmp: DownwardMessage[] = []
   readonly #hrmp: Record<number, HorizontalMessage[]> = {}
-
-  #mode: BuildBlockMode
-  #modeArgs: BuildBlockModeArgs
-  readonly #inherentProvider: InherentProvider
-  readonly #pendingBlocks: { params: BuildBlockParams; deferred: Deferred<void> }[] = []
-
   readonly event = new EventEmitter()
 
-  #isBuilding = false
-
-  #blockTimer: NodeJS.Timer | null = null;
-
-  constructor(chain: Blockchain, inherentProvider: InherentProvider, mode: BuildBlockMode = BuildBlockMode.Batch, modeArgs: BuildBlockModeArgs = {}) {
+  constructor(chain: Blockchain) {
     this.#chain = chain
-    this.#mode = mode
-    this.#modeArgs = modeArgs || {}
-    this.#inherentProvider = inherentProvider
-    this.setupBlockMode();
   }
 
   get pendingExtrinsics(): HexString[] {
@@ -86,23 +59,6 @@ export class TxPool {
     return this.#hrmp
   }
 
-  get mode(): BuildBlockMode {
-    return this.#mode
-  }
-
-  set mode(mode: BuildBlockMode) {
-    this.#mode = mode
-    this.setupBlockMode();
-  }
-
-  get modeArgs(): BuildBlockModeArgs {
-    return this.#modeArgs
-  }
-
-  set modeArgs(modeArgs: BuildBlockModeArgs) {
-    this.#modeArgs = modeArgs || {}
-  }
-
   clear() {
     this.#pool.length = 0
     for (const id of Object.keys(this.#ump)) {
@@ -118,58 +74,13 @@ export class TxPool {
     return this.#pool.filter(({ signer }) => signer === address).map(({ extrinsic }) => extrinsic)
   }
 
-  setupBlockMode() {
-    // clear block build mode firstly
-    this.clearBlockMode();
-
-    // setup block build mode
-    switch (this.#mode) {
-      case BuildBlockMode.Peroid:
-        this.setupPeroidBlockMode();
-        break
-      default:
-        break
-    }
-  }
-
-  clearBlockMode() {
-    if (this.#mode != BuildBlockMode.Peroid) {
-      this.clearPeriodBlockMode();
-    }
-  }
-
-  clearPeriodBlockMode() {
-    // clear block build period timer
-    if (this.#blockTimer) {
-      clearInterval(this.#blockTimer);
-      this.#blockTimer = null;
-    }
-  }
-
-  setupPeroidBlockMode() {
-    // check arguments
-    if (!this.#modeArgs.period
-      || isNaN(this.#modeArgs.period)
-      ||  this.#modeArgs.period <= 0) {
-      this.#modeArgs.period = DEFAULT_BUILD_PERIOD;
-    }
-
-    this.clearPeriodBlockMode();
-
-    logger.info(`setupPeroidBlockMode, period:${this.#modeArgs.period}`)
-    // build new block per peroid
-    this.#blockTimer = setInterval(() => {
-      logger.info(`Start build block.., interval:${this.#modeArgs.period}`)
-      this.buildBlock();
-    }, this.#modeArgs.period * 1000)
-  }
-
   async submitExtrinsic(extrinsic: HexString) {
     logger.debug({ extrinsic: truncate(extrinsic) }, 'submit extrinsic')
 
-    this.#pool.push({ extrinsic, signer: await this.#getSigner(extrinsic) })
+    const data = { extrinsic, signer: await this.#getSigner(extrinsic) };
+    this.#pool.push(data)
 
-    this.#maybeBuildBlock()
+    this.event.emit(EVENT_SUBMIT_EXTRINSIC, data)
   }
 
   async #getSigner(extrinsic: HexString) {
@@ -186,7 +97,7 @@ export class TxPool {
     }
     this.#ump[id].push(...ump)
 
-    this.#maybeBuildBlock()
+    this.event.emit(EVENT_SUBMIT_UPWARD_MESSAGES, id, ump)
   }
 
   submitDownwardMessages(dmp: DownwardMessage[]) {
@@ -194,7 +105,7 @@ export class TxPool {
 
     this.#dmp.push(...dmp)
 
-    this.#maybeBuildBlock()
+    this.event.emit(EVENT_SUBMIT_DOWNWARD_MESSAGES, dmp);
   }
 
   submitHorizontalMessages(id: number, hrmp: HorizontalMessage[]) {
@@ -205,38 +116,10 @@ export class TxPool {
     }
     this.#hrmp[id].push(...hrmp)
 
-    this.#maybeBuildBlock()
+    this.event.emit(EVENT_SUBMIT_HORIZTONAL_MESSAGES, id, hrmp);
   }
 
-  #maybeBuildBlock() {
-    switch (this.#mode) {
-      case BuildBlockMode.Batch:
-        this.#batchBuildBlock()
-        break
-      case BuildBlockMode.Instant:
-        this.buildBlock()
-        break
-      case BuildBlockMode.Manual:
-        // does nothing
-        break
-      case BuildBlockMode.Peroid:
-        // does nothing
-        break
-    }
-  }
-
-  #batchBuildBlock = _.debounce(this.buildBlock, 100, { maxWait: 1000 })
-
-  async buildBlockWithParams(params: BuildBlockParams) {
-    this.#pendingBlocks.push({
-      params,
-      deferred: defer<void>(),
-    })
-    this.#buildBlockIfNeeded()
-    await this.upcomingBlocks()
-  }
-
-  async buildBlock(params?: Partial<BuildBlockParams>) {
+  createNewBlock(params?: Partial<BuildBlockParams>) {
     const transactions = params?.transactions || this.#pool.splice(0).map(({ extrinsic }) => extrinsic)
     const upwardMessages = params?.upwardMessages || { ...this.#ump }
     const downwardMessages = params?.downwardMessages || this.#dmp.splice(0)
@@ -251,63 +134,11 @@ export class TxPool {
         delete this.#hrmp[id]
       }
     }
-    await this.buildBlockWithParams({
+    return {
       transactions,
       upwardMessages,
       downwardMessages,
       horizontalMessages,
-    })
-  }
-
-  async upcomingBlocks() {
-    const count = this.#pendingBlocks.length
-    if (count > 0) {
-      await this.#pendingBlocks[count - 1].deferred.promise
     }
-    return count
-  }
-
-  async #buildBlockIfNeeded() {
-    if (this.#isBuilding) return
-    if (this.#pendingBlocks.length === 0) return
-
-    this.#isBuilding = true
-    try {
-      await this.#buildBlock()
-    } finally {
-      this.#isBuilding = false
-    }
-    this.#buildBlockIfNeeded()
-  }
-
-  async #buildBlock() {
-    await this.#chain.api.isReady
-
-    const pending = this.#pendingBlocks[0]
-    if (!pending) {
-      throw new Error('Unreachable')
-    }
-    const { params, deferred } = pending
-
-    logger.trace({ params }, 'build block')
-
-    const head = this.#chain.head
-    const inherents = await this.#inherentProvider.createInherents(head, params)
-    const [newBlock, pendingExtrinsics] = await buildBlock(
-      head,
-      inherents,
-      params.transactions,
-      params.upwardMessages,
-      (extrinsic, error) => {
-        this.event.emit(APPLY_EXTRINSIC_ERROR, [extrinsic, error])
-      }
-    )
-    for (const extrinsic of pendingExtrinsics) {
-      this.#pool.push({ extrinsic, signer: await this.#getSigner(extrinsic) })
-    }
-    await this.#chain.setHead(newBlock)
-
-    this.#pendingBlocks.shift()
-    deferred.resolve()
   }
 }

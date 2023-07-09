@@ -8,7 +8,7 @@ import dotenv from 'dotenv'
 import yaml from 'js-yaml'
 import yargs from 'yargs'
 
-import { Blockchain, BuildBlockMode, connectParachains, connectVertical, setup, setupWithServer } from '.'
+import { Blockchain, connectParachains, connectVertical, setup, setupWithServer } from '.'
 import { configSchema } from './schema'
 import { decodeKey } from './utils/decoder'
 import { dryRun } from './dry-run'
@@ -17,6 +17,7 @@ import { isUrl } from './utils'
 import { logger } from './rpc/shared'
 import { runBlock } from './run-block'
 import { tryRuntime } from './try-runtime'
+import { MinerMode } from './blockchain/block/miner'
 
 dotenv.config()
 
@@ -105,12 +106,12 @@ yargs(hideBin(process.argv))
           desc: 'Port to listen on',
           number: true,
         },
-        'build-block-mode': {
-          desc: 'Build block mode. Default to Batch',
-          enum: [BuildBlockMode.Batch, BuildBlockMode.Manual, BuildBlockMode.Instant, BuildBlockMode.Peroid],
+        'miner-mode': {
+          desc: 'Block miner mode. Default to Batch',
+          enum: [MinerMode.Batch, MinerMode.Manual, MinerMode.Instant, MinerMode.Peroid],
         },
-        'build-block-period': {
-          desc: 'Build block period, seconds. Only avaliable when build-block-mode is period',
+        'miner-interval': {
+          desc: 'Miner interval, seconds. Only avaliable when miner-mode is period',
           number: true,
         },
         'allow-unresolved-imports': {

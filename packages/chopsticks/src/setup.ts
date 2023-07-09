@@ -5,6 +5,7 @@ import { ProviderInterface } from '@polkadot/rpc-provider/types'
 import { WsProvider } from '@polkadot/api'
 
 import { Api } from './api'
+import { BlockMiner } from './blockchain/block/miner'
 import { Blockchain } from './blockchain'
 import { Config } from './schema'
 import { GenesisProvider } from './genesis-provider'
@@ -20,7 +21,6 @@ import { defaultLogger } from './logger'
 import { importStorage, overrideWasm } from './utils/import-storage'
 import { openDb } from './db'
 import { timeTravel } from './utils/time-travel'
-import { BuildBlockModeArgs } from './blockchain/txpool'
 
 export const setup = async (argv: Config, runBlock = false) => {
   let provider: ProviderInterface
@@ -63,15 +63,10 @@ export const setup = async (argv: Config, runBlock = false) => {
     new SetBabeRandomness(),
   ])
 
-  const buildBlockModeArgs: BuildBlockModeArgs = {};
-  if (argv['build-block-period']) {
-    buildBlockModeArgs.period = parseInt(argv['build-block-period']);
-  }
-
+  const minerConfig = BlockMiner.buildConfigFromArgs(argv, true);
   const chain = new Blockchain({
     api,
-    buildBlockMode: argv['build-block-mode'],
-    buildBlockModeArgs,
+    minerConfig,
     inherentProvider: inherents,
     db,
     header: {
